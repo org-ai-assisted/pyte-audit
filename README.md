@@ -26,6 +26,7 @@ both builds unless noted.
 | [D](reports/bug-D-decom-no-margins.md) | VPA/DSR under DECOM w/o margins -> `AssertionError` | DoS | **No fix** ([PR #210] does NOT address it, verified) |
 | [E](reports/bug-E-resize-cursor-oob.md) | `resize()` smaller than cursor -> off-screen write, data loss | data integrity | **No fix** (not a parser crash; untouched by [PR #210]) |
 | [F](reports/bug-F-int-unicode-digit.md) | `int('superscript-digit')` in CSI param -> `ValueError` | DoS | **Fix open: [PR #210]** (verified) |
+| [G](reports/bug-G-history-after-event.md) | `HistoryScreen.after_event` mutates a line dict mid-iteration -> `RuntimeError` | DoS | **No fix** (new; found after #210, verified) |
 
 ### Dedup against upstream (verified against the PR #210 head, commit `98bd878`)
 
@@ -35,8 +36,10 @@ jonathanslenders, targeting issue [#209]) fixes the parser-crash class. Running
 C, and F** and **leaves D and E crashing**. So:
 
 * **A, B, C, F** already have an open upstream fix -- do not duplicate.
-* **D and E** are not addressed by any open upstream PR and are the genuinely
-  new findings here.
+* **D, E, and G** are not addressed by any open upstream PR and are the
+  genuinely new findings here. **G** was found by fuzzing *against the PR #210
+  tree* (parser crashes fixed), which let the fuzzer reach it; a 120k-round
+  adversarial sweep with A-G filtered surfaced nothing further.
 
 [PR #210]: https://github.com/selectel/pyte/pull/210
 [#209]: https://github.com/selectel/pyte/issues/209

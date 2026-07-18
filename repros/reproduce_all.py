@@ -37,6 +37,19 @@ def check_bug_e():
     return oob or lost
 
 
+def check_bug_g():
+    s = pyte.HistoryScreen(10, 3, history=20)
+    stream = pyte.Stream(s)
+    for _ in range(8):
+        stream.feed("ABCDEFGHIJ\r\n")
+    s.resize(lines=3, columns=4)
+    try:
+        s.prev_page()
+        return False
+    except Exception:
+        return True
+
+
 def main():
     print("pyte:", getattr(pyte, "__version__", "n/a"),
           "at", pyte.__file__)
@@ -53,6 +66,11 @@ def main():
         print("  CRASH E resize cursor OOB   resize(1,1) leaves cursor off-screen, draw lost")
     else:
         print("  ok    E resize cursor OOB")
+    if check_bug_g():
+        present += 1
+        print("  CRASH G HistoryScreen.after_event   resize+prev_page dict-mutation-in-loop")
+    else:
+        print("  ok    G HistoryScreen.after_event")
     print(f"findings still present: {present}")
     return present
 
