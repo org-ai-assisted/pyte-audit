@@ -2,6 +2,7 @@
 
 **Class:** DoS (unhandled exception on untrusted input)
 **Affected:** upstream master `0.8.3.dev` (`AssertionError`), Debian `0.8.0-3` (`AttributeError`)
+**Upstream fix:** none -- open [PR #210](https://github.com/selectel/pyte/pull/210) does NOT address this (verified against the PR head).
 **Upstream:** no matching report found - **likely novel** (may fall under [#209]'s
 "there were others").
 

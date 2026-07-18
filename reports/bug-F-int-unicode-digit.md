@@ -2,6 +2,7 @@
 
 **Class:** DoS (unhandled exception on untrusted input)
 **Affected:** upstream master `0.8.3.dev`, Debian `0.8.0-3`
+**Upstream fix:** open [PR #210](https://github.com/selectel/pyte/pull/210) fixes this (verified against the PR head).
 **Upstream:** already reported - open [#209] crash 2
 (`ValueError: invalid literal for int() with base 10: '<U+00B3>' (superscript three)`).
 Found by upstream's fuzzing; corroborated here.

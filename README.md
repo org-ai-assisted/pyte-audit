@@ -18,15 +18,27 @@ both builds unless noted.
 
 ## Findings
 
-| ID | Defect | Class | Upstream status |
-|----|--------|-------|-----------------|
-| [A](reports/bug-A-extra-csi-params.md) | Extra CSI params -> `TypeError` out of `feed()` | DoS | **Reported** (open [#209] crash 3) |
-| [B](reports/bug-B-private-kwarg.md) | Private `?` CSI -> `TypeError: ... 'private'` | DoS | **Reported** (open [#209] crash 1, [#126], [#67]) |
-| [C](reports/bug-C-erase-unboundlocal.md) | `erase_in_line`/`erase_in_display` bad `how` -> `UnboundLocalError` | DoS | Partly ([#108] fixed `erase_in_display` args; CodeQL confirms) |
-| [D](reports/bug-D-decom-no-margins.md) | VPA/DSR under DECOM w/o margins -> `AssertionError` | DoS | **Not found reported** (likely novel) |
-| [E](reports/bug-E-resize-cursor-oob.md) | `resize()` smaller than cursor -> off-screen write, data loss | data integrity | **Not found reported** (likely novel) |
-| [F](reports/bug-F-int-unicode-digit.md) | `int('superscript-digit')` in CSI param -> `ValueError` | DoS | **Reported** (open [#209] crash 2) |
+| ID | Defect | Class | Upstream fix status |
+|----|--------|-------|---------------------|
+| [A](reports/bug-A-extra-csi-params.md) | Extra CSI params -> `TypeError` out of `feed()` | DoS | **Fix open: [PR #210]** (verified) |
+| [B](reports/bug-B-private-kwarg.md) | Private `?` CSI -> `TypeError: ... 'private'` | DoS | **Fix open: [PR #210]** (verified) |
+| [C](reports/bug-C-erase-unboundlocal.md) | `erase_in_line`/`erase_in_display` bad `how` -> `UnboundLocalError` | DoS | **Fix open: [PR #210]** (verified; identical `else: return`) |
+| [D](reports/bug-D-decom-no-margins.md) | VPA/DSR under DECOM w/o margins -> `AssertionError` | DoS | **No fix** ([PR #210] does NOT address it, verified) |
+| [E](reports/bug-E-resize-cursor-oob.md) | `resize()` smaller than cursor -> off-screen write, data loss | data integrity | **No fix** (not a parser crash; untouched by [PR #210]) |
+| [F](reports/bug-F-int-unicode-digit.md) | `int('superscript-digit')` in CSI param -> `ValueError` | DoS | **Fix open: [PR #210]** (verified) |
 
+### Dedup against upstream (verified against the PR #210 head, commit `98bd878`)
+
+Open **[PR #210] "Don't crash when consuming arbitrary random data"** (by
+jonathanslenders, targeting issue [#209]) fixes the parser-crash class. Running
+`repros/reproduce_all.py` against the PR #210 tree confirms it **resolves A, B,
+C, and F** and **leaves D and E crashing**. So:
+
+* **A, B, C, F** already have an open upstream fix -- do not duplicate.
+* **D and E** are not addressed by any open upstream PR and are the genuinely
+  new findings here.
+
+[PR #210]: https://github.com/selectel/pyte/pull/210
 [#209]: https://github.com/selectel/pyte/issues/209
 [#126]: https://github.com/selectel/pyte/issues/126
 [#67]: https://github.com/selectel/pyte/issues/67
@@ -46,12 +58,13 @@ reviewed and are not defects.
 
 ## Novelty
 
-A, B, F are already covered by open upstream issue [#209] ("Various parser
-crashes on random input", whose reporter explicitly asked for a parser fuzzer).
-C is partly addressed. **D and E appear to be new.** Upstream has **no AI
-contribution policy** and is semi-active (last code commit 2025-09).
+A, B, C, F are fixed by open upstream [PR #210] (verified). **D and E are new**
+-- no open upstream PR addresses them. Upstream has **no AI contribution
+policy** and is semi-active (last code commit 2025-09).
 
 ## Status
 
 Draft. **No upstream communication has been made.** Proposed fixes are drafted
-as branches on the `org-ai-assisted/pyte` fork.
+as branches on the `org-ai-assisted/pyte` fork (D and E as draft PRs); the
+parser-crash fix is superseded by upstream [PR #210] and is not for upstream
+submission.

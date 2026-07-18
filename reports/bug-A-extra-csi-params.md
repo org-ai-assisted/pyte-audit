@@ -2,6 +2,7 @@
 
 **Class:** DoS (unhandled exception on untrusted input)
 **Affected:** upstream master `0.8.3.dev`, Debian `0.8.0-3`
+**Upstream fix:** open [PR #210](https://github.com/selectel/pyte/pull/210) fixes this (verified against the PR head).
 **Upstream:** already reported - open issue [#209] crash 3 (`cursor_down() takes from 1 to 2 positional arguments but 3 were given`).
 
 ## Repro

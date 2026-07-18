@@ -2,6 +2,7 @@
 
 **Class:** DoS (unhandled exception on untrusted input)
 **Affected:** upstream master `0.8.3.dev`, Debian `0.8.0-3`
+**Upstream fix:** open [PR #210](https://github.com/selectel/pyte/pull/210) fixes this (verified against the PR head).
 **Upstream:** already reported - open [#209] crash 1 (`insert_lines() ... 'private'`), open [#126] (w3m, since 2019), closed [#67] (`set_margins ... 'private'`, still unfixed for that handler).
 
 ## Repro
