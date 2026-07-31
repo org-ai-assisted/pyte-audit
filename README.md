@@ -22,7 +22,7 @@ both builds unless noted.
 |----|--------|-------|---------------------|
 | [A](reports/bug-A-extra-csi-params.md) | Extra CSI params -> `TypeError` out of `feed()` | DoS | **Fix open: [PR #210]** (verified) |
 | [B](reports/bug-B-private-kwarg.md) | Private `?` CSI -> `TypeError: ... 'private'` | DoS | **Fix open: [PR #210]** (verified) |
-| [C](reports/bug-C-erase-unboundlocal.md) | `erase_in_line`/`erase_in_display` bad `how` -> `UnboundLocalError` | DoS | **Fix open: [PR #210]** (verified; identical `else: return`) |
+| [C](reports/bug-C-erase-unboundlocal.md) | `erase_in_line`/`erase_in_display` bad `how` -> `UnboundLocalError` | DoS | **Fix open: [PR #210]** (verified; identical `else: return`). Fork fix: [pyte#7] |
 | [D](reports/bug-D-decom-no-margins.md) | VPA/DSR under DECOM w/o margins -> `AssertionError` | DoS | **No fix** ([PR #210] does NOT address it, verified) |
 | [E](reports/bug-E-resize-cursor-oob.md) | `resize()` smaller than cursor -> off-screen write, data loss | data integrity | **No fix** (not a parser crash; untouched by [PR #210]) |
 | [F](reports/bug-F-int-unicode-digit.md) | `int('superscript-digit')` in CSI param -> `ValueError` | DoS | **Fix open: [PR #210]** (verified) |
@@ -42,6 +42,7 @@ C, and F** and **leaves D and E crashing**. So:
   adversarial sweep with A-G filtered surfaced nothing further.
 
 [PR #210]: https://github.com/selectel/pyte/pull/210
+[pyte#7]: https://github.com/org-ai-assisted/pyte/pull/7
 [#209]: https://github.com/selectel/pyte/issues/209
 [#126]: https://github.com/selectel/pyte/issues/126
 [#67]: https://github.com/selectel/pyte/issues/67

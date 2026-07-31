@@ -3,6 +3,9 @@
 **Class:** DoS (unhandled exception on untrusted input)
 **Affected:** upstream master `0.8.3.dev`, Debian `0.8.0-3`
 **Upstream fix:** open [PR #210](https://github.com/selectel/pyte/pull/210) fixes this (verified against the PR head).
+**Fork fix:** [org-ai-assisted/pyte#7](https://github.com/org-ai-assisted/pyte/pull/7) - same `else: return`, with a
+regression test (1 fail pre-fix, 118 pass / 0 fail / 0 skip / 1 xfail post-fix).
+Not for upstream submission; PR #210 already covers it.
 **Upstream:** partly - PR [#108] added `*args` to `erase_in_display` for a related
 case; the `UnboundLocalError` remains for out-of-range `how`. **CodeQL**
 independently flags it (`screens.py:792`, `:825`, "Potentially uninitialized
