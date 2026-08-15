@@ -52,8 +52,10 @@ def check_bug_g():
 
 def check_bug_h():
     s = pyte.Screen(3, 3)                # DECAWM on, LNM off by default
-    pyte.Stream(s).feed("abc\ndef")      # full-width line, bare LF, next line
-    return s.display != ["abc", "def", "   "]
+    pyte.Stream(s).feed("abc\nX")        # full-width line, bare LF, one more char
+    # xterm: last-column flag cleared, column kept -> ["abc", "  X", "   "].
+    # Bug present: the deferred wrap survives the LF -> blank row, X at (2, 0).
+    return s.display != ["abc", "  X", "   "]
 
 
 def main():
