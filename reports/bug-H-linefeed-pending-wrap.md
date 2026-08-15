@@ -5,9 +5,9 @@
 **Upstream fix:** none. Open [PR #210](https://github.com/selectel/pyte/pull/210)
 addresses only the parser-crash class and does not touch `DECAWM` wrapping.
 **Fork fix:** [org-ai-assisted/pyte#7](https://github.com/org-ai-assisted/pyte/pull/7) --
-`Screen.index` / `reverse_index` reset the last-column flag, with native
-regression tests (`tests/test_screen.py`; 3 fail pre-fix, 122 pass / 0 fail /
-0 skip / 1 xfail post-fix).
+the cursor-move primitives reset the last-column flag, with native regression
+tests (`tests/test_screen.py`; pre-fix fail, 124 pass / 0 fail / 0 skip /
+1 xfail post-fix).
 **Reference terminal:** behaviour below was verified against **xterm** with a
 `ESC[6n` (DSR) cursor-position probe -- see [Reference behaviour](#reference-behaviour).
 **Upstream:** no matching report found -- **likely novel**.
@@ -49,11 +49,14 @@ column with `DECAWM` set, `cursor.x == columns` and the wrap is performed only
 when the *next* printable character arrives (`Screen.draw`: `if self.cursor.x ==
 self.columns: ... carriage_return(); linefeed()`).
 
-`Screen.index` (used by line feed, `IND` and `NEL`) and `Screen.reverse_index`
-never clear that state. So a bare `\n` between two width-filling lines advances
-the cursor twice: once for the line feed itself, and again for the deferred wrap
-that fires on the first character of the next line -- landing it two rows down
-and leaving a blank row.
+Only `Screen.cursor_back` cleared that state (`if self.cursor.x == self.columns:
+self.cursor.x -= 1`). `Screen.index` (line feed, `IND`, `NEL`), `reverse_index`,
+`cursor_up`, `cursor_down` and `cursor_to_line` (`VPA`) did not. So a bare `\n`
+between two width-filling lines advances the cursor twice: once for the line
+feed itself, and again for the deferred wrap that fires on the first character
+of the next line -- landing it two rows down and leaving a blank row. `IND`,
+`cursor-down` and `VPA` from the parked state show the same doubling, verified
+against xterm by DSR (down/absolute move, column kept at the last cell).
 
 A line feed resets the last-column flag while keeping the column, so the next
 character lands at the last column of the new line. In normal PTY use `ONLCR`
@@ -62,22 +65,22 @@ so the double advance never happens -- which is why this only bites *bare* `\n`
 output, e.g. a raw-fed full-viewport board or a program writing `\n` without `\r`.
 
 ## Proposed fix
-Reset the flag at the start of the index primitives, keeping the column:
+Consolidate the reset `cursor_back` already did into one helper and call it from
+every cursor-move primitive, keeping the column:
 ```python
 def _clear_last_column_flag(self) -> None:
-    if mo.DECAWM in self.mode and self.cursor.x >= self.columns:
-        self.cursor.x = self.columns - 1
+    if self.cursor.x == self.columns:
+        self.cursor.x -= 1
 
 def index(self) -> None:
     self._clear_last_column_flag()
     ...
 
-def reverse_index(self) -> None:
-    self._clear_last_column_flag()
-    ...
+# likewise reverse_index, cursor_up, cursor_down, cursor_to_line, and
+# cursor_back (which had the inline version already).
 ```
-The `DECAWM` guard matters: the last-column flag only exists with autowrap on.
-With it off pyte parks the cursor at the last column so `draw()` *overwrites*
-there, and a line feed must leave the column untouched. The `secure-terminal`
-terminal emulator carries the same reset as a `HistoryScreen` subclass
-workaround (it pins the distribution `pyte`, which lacks this fix).
+The reset is unconditional, matching `cursor_back`: the last-column park exists
+with autowrap off too (the cursor sits at the last column so `draw()` overwrites
+there), and a move resolves it the same way. The `secure-terminal` terminal
+emulator carries a `HistoryScreen` subclass workaround for the line-feed case
+(it pins the distribution `pyte`, which lacks this fix).
