@@ -10,7 +10,8 @@ tests (`tests/test_screen.py`; pre-fix fail, 124 pass / 0 fail / 0 skip /
 1 xfail post-fix).
 **Reference terminal:** behaviour below was verified against **xterm** with a
 `ESC[6n` (DSR) cursor-position probe -- see [Reference behaviour](#reference-behaviour).
-**Upstream:** no matching report found -- **likely novel**.
+**Upstream:** no issue or PR describes this defect (bare LF not clearing the
+last-column flag) -- **likely novel**. See [Related upstream](#related-upstream).
 
 ## Repro
 ```python
@@ -84,3 +85,19 @@ with autowrap off too (the cursor sits at the last column so `draw()` overwrites
 there), and a move resolves it the same way. The `secure-terminal` terminal
 emulator carries a `HistoryScreen` subclass workaround for the line-feed case
 (it pins the distribution `pyte`, which lacks this fix).
+
+## Related upstream
+Read-only survey of `selectel/pyte`; nothing was filed (no upstream contact).
+No issue or PR describes this defect. The nearest are:
+
+- [#11 Handling of LNM Mode](https://github.com/selectel/pyte/issues/11)
+  (closed) -- established that `LNM` defaults *reset*, so a bare `\n` is only a
+  line feed with no implicit `\r`. That default is exactly the condition under
+  which this bug bites; the defect itself is not mentioned.
+- [#20 Weird wrapping](https://github.com/selectel/pyte/issues/20) (closed) --
+  the same staircase symptom, but from a *continuous* over-width feed rather
+  than a line feed, and long since resolved.
+- [#55](https://github.com/selectel/pyte/issues/55) /
+  [#9](https://github.com/selectel/pyte/issues/9) -- the width-2 line-end and
+  full/ambiguous-width cursor behaviour the fix stays consistent with: a wide
+  grapheme that cannot fit the retained column is parked, not wrapped.
