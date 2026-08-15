@@ -4,8 +4,8 @@
 Usage:
     PYTHONPATH=/path/to/pyte/checkout python3 reproduce_all.py
 
-Prints one line per finding: CRASH (bug present) or ok. Bug E is checked by
-state, not exception. Exit code is the number of findings still present.
+Prints one line per finding: CRASH (bug present) or ok. Bugs E and H are checked
+by state, not exception. Exit code is the number of findings still present.
 """
 import sys
 import pyte
@@ -50,6 +50,12 @@ def check_bug_g():
         return True
 
 
+def check_bug_h():
+    s = pyte.Screen(3, 3)                # DECAWM on, LNM off by default
+    pyte.Stream(s).feed("abc\ndef")      # full-width line, bare LF, next line
+    return s.display != ["abc", "def", "   "]
+
+
 def main():
     print("pyte:", getattr(pyte, "__version__", "n/a"),
           "at", pyte.__file__)
@@ -71,6 +77,11 @@ def main():
         print("  CRASH G HistoryScreen.after_event   resize+prev_page dict-mutation-in-loop")
     else:
         print("  ok    G HistoryScreen.after_event")
+    if check_bug_h():
+        present += 1
+        print("  CRASH H linefeed blank row   bare LF after a full-width line inserts a blank row")
+    else:
+        print("  ok    H linefeed blank row")
     print(f"findings still present: {present}")
     return present
 
