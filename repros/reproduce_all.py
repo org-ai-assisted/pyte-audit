@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3 -Bsu
 """Reproduce every pyte-audit finding against whatever `pyte` is importable.
 
 Usage:
     PYTHONPATH=/path/to/pyte/checkout python3 reproduce_all.py
 
-Prints one line per finding: CRASH (bug present) or ok. Bugs E and H are checked
-by state, not exception. Exit code is the number of findings still present.
+Prints one line per finding: CRASH (bug present) or ok. Bugs E, G, H and I are
+checked by state, not exception. Exit code is the number of findings still present.
 """
 import sys
 import pyte
@@ -58,6 +58,19 @@ def check_bug_h():
     return s.display != ["abc", "  X", "   "]
 
 
+def check_bug_i():
+    # SU/SD (CSI S/T) are unimplemented: no csi entry and no Screen method, so a
+    # scroll-region scroll is a silent no-op.
+    if "S" in pyte.Stream.csi or "T" in pyte.Stream.csi:
+        return False
+    s = pyte.Screen(5, 4)
+    st = pyte.Stream(s)
+    st.feed("AAAAA\r\nBBBBB\r\nCCCCC\r\nDDDDD")
+    st.feed("\x1b[T")                    # SD 1: should scroll the screen down one line
+    # xterm: ["     ", "AAAAA", "BBBBB", "CCCCC"]. Bug present: unchanged.
+    return s.display == ["AAAAA", "BBBBB", "CCCCC", "DDDDD"]
+
+
 def main():
     print("pyte:", getattr(pyte, "__version__", "n/a"),
           "at", pyte.__file__)
@@ -84,6 +97,11 @@ def main():
         print("  CRASH H linefeed blank row   bare LF after a full-width line inserts a blank row")
     else:
         print("  ok    H linefeed blank row")
+    if check_bug_i():
+        present += 1
+        print("  CRASH I no SU/SD            CSI S/T scroll-region scroll is a silent no-op")
+    else:
+        print("  ok    I no SU/SD")
     print(f"findings still present: {present}")
     return present
 

@@ -28,6 +28,7 @@ both builds unless noted.
 | [F](reports/bug-F-int-unicode-digit.md) | `int('superscript-digit')` in CSI param -> `ValueError` | DoS | **Fix open: [PR #210]** (verified) |
 | [G](reports/bug-G-history-after-event.md) | `HistoryScreen.after_event` mutates a line dict mid-iteration -> `RuntimeError` | DoS | **No fix** (new; found after #210, verified) |
 | [H](reports/bug-H-linefeed-pending-wrap.md) | Bare LF after a width-filling line leaves a blank row (`DECAWM` deferred-wrap not cleared) | rendering | **No fix** ([PR #210] does not touch it). Fork fix: [pyte#7] |
+| [I](reports/bug-I-no-su-sd-scroll.md) | No SU/SD (`CSI S`/`CSI T`); scroll-region scrolls are silent no-ops, and the parser drops the `>`/SP intermediates that would disambiguate them | rendering | **No fix** (feature gap; [PR #210] does not add it). Fork fix: [st#151] |
 
 ### Dedup against upstream (verified against the PR #210 head, commit `98bd878`)
 
@@ -37,15 +38,19 @@ jonathanslenders, targeting issue [#209]) fixes the parser-crash class. Running
 C, and F** and **leaves D and E crashing**. So:
 
 * **A, B, C, F** already have an open upstream fix -- do not duplicate.
-* **D, E, G, and H** are not addressed by any open upstream PR and are the
+* **D, E, G, H, and I** are not addressed by any open upstream PR and are the
   genuinely new findings here. **G** was found by fuzzing *against the PR #210
   tree* (parser crashes fixed), which let the fuzzer reach it; a 120k-round
   adversarial sweep with A-G filtered surfaced nothing further. **H** is a
   rendering bug (not a crash), so the crash-oriented fuzzers never flag it; it
-  is the deferred-wrap defect fixed in the `secure-terminal` emulator.
+  is the deferred-wrap defect fixed in the `secure-terminal` emulator. **I** is
+  a feature gap (SU/SD unimplemented) plus a parser limitation (intermediates
+  dropped), surfaced by a full-screen app's scroll-region paste redraw; also not
+  crash-shaped, so the fuzzers never flag it.
 
 [PR #210]: https://github.com/selectel/pyte/pull/210
 [pyte#7]: https://github.com/org-ai-assisted/pyte/pull/7
+[st#151]: https://github.com/org-ai-assisted/secure-terminal/pull/151
 [#209]: https://github.com/selectel/pyte/issues/209
 [#126]: https://github.com/selectel/pyte/issues/126
 [#67]: https://github.com/selectel/pyte/issues/67
@@ -58,16 +63,18 @@ sinks and no native code, so there is **no RCE or info-leak surface**. The
 relevant class is **denial of service**: A-D and F are unhandled exceptions that
 escape `Stream.feed()` and crash the hosting application on untrusted terminal
 output (`cat` any binary file, as [#209] notes). **E** is a data-integrity bug
-(silent loss of drawn text). **H** is a rendering-correctness bug (spurious
-blank rows), not a crash. CodeQL independently flagged the C uninitialised
+(silent loss of drawn text). **H** and **I** are rendering-correctness bugs
+(spurious blank rows; dropped scroll-region scrolls), not crashes -- moving or
+failing to move already-modelled rows adds no injection/exec sink, so neither is
+a security issue. CodeQL independently flagged the C uninitialised
 variable; its other findings (a `TYPE_CHECKING`-only "cyclic import", an
 intentional empty `except`, an `__init__`-calls-overridden-`reset` smell) were
 reviewed and are not defects.
 
 ## Novelty
 
-A, B, C, F are fixed by open upstream [PR #210] (verified). **D, E, G and H are
-new** -- no open upstream PR addresses them. Upstream has **no AI contribution
+A, B, C, F are fixed by open upstream [PR #210] (verified). **D, E, G, H and I
+are new** -- no open upstream PR addresses them. Upstream has **no AI contribution
 policy** and is semi-active (last code commit 2025-09).
 
 ## Status
