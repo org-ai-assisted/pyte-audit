@@ -59,16 +59,19 @@ def check_bug_h():
 
 
 def check_bug_i():
-    # SU/SD (CSI S/T) are unimplemented: no csi entry and no Screen method, so a
-    # scroll-region scroll is a silent no-op.
-    if "S" in pyte.Stream.csi or "T" in pyte.Stream.csi:
-        return False
-    s = pyte.Screen(5, 4)
-    st = pyte.Stream(s)
-    st.feed("AAAAA\r\nBBBBB\r\nCCCCC\r\nDDDDD")
-    st.feed("\x1b[T")                    # SD 1: should scroll the screen down one line
-    # xterm: ["     ", "AAAAA", "BBBBB", "CCCCC"]. Bug present: unchanged.
-    return s.display == ["AAAAA", "BBBBB", "CCCCC", "DDDDD"]
+    # Bug present unless BOTH SU (CSI S) and SD (CSI T) scroll correctly. Judge by BEHAVIOUR,
+    # not by whether the S/T mappings exist: a partial or wrong implementation (only one byte
+    # mapped, a missing Screen handler, or an incorrect scroll) must still read as the bug.
+    def _scrolled(seq):
+        s = pyte.Screen(5, 4)
+        st = pyte.Stream(s)
+        st.feed("AAAAA\r\nBBBBB\r\nCCCCC\r\nDDDDD")
+        st.feed(seq)
+        return s.display
+    blank = " " * 5
+    sd_ok = _scrolled("\x1b[T") == [blank, "AAAAA", "BBBBB", "CCCCC"]   # SD 1: down, blank at top
+    su_ok = _scrolled("\x1b[S") == ["BBBBB", "CCCCC", "DDDDD", blank]   # SU 1: up, blank at bottom
+    return not (sd_ok and su_ok)
 
 
 def main():
