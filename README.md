@@ -31,7 +31,7 @@ both builds unless noted.
 | [I](reports/bug-I-no-su-sd-scroll.md) | No SU/SD (`CSI S`/`CSI T`); scroll-region scrolls are silent no-ops, and the parser drops the `>`/SP intermediates that would disambiguate them | rendering | **No fix** (feature gap; [PR #210] does not add it). Fork fix: [st#151] |
 | [J](reports/bug-J-resize-margins-clip.md) | `resize()` smaller with an active scroll region (`top > 0`) keeps the earliest rows, not the latest -> silent data loss | data integrity | **No fix** ([PR #210] does not touch `resize()`) |
 | [K](reports/bug-K-resize-tabstops-stale.md) | `resize()` to fewer columns leaves stale tab stops; `tab()` parks the cursor off-screen and the next `draw()` is lost | data integrity | **No fix** ([PR #210] does not touch `resize()`/`tab()`) |
-| [L](reports/bug-L-wide-char-erase-orphan.md) | Erasing/deleting a wide-char head orphans the stub; the rendered row becomes shorter than `columns` | rendering | **No fix** ([PR #210] does not touch the erase/delete handlers) |
+| [L](reports/bug-L-wide-char-erase-orphan.md) | Erasing/deleting a wide-char head orphans the stub -> `IndexError` on released builds (0.8.0-3/0.8.2), a row shorter than `columns` on the git tip | DoS (released) / rendering (tip) | **No fix** ([PR #210] does not touch the erase/delete handlers or `render()`) |
 
 ### Dedup against upstream (verified against the PR #210 head, commit `98bd878`)
 
@@ -49,11 +49,14 @@ C, and F** and **leaves D and E crashing**. So:
   is the deferred-wrap defect fixed in the `secure-terminal` emulator. **I** is
   a feature gap (SU/SD unimplemented) plus a parser limitation (intermediates
   dropped), surfaced by a full-screen app's scroll-region paste redraw; also not
-  crash-shaped, so the fuzzers never flag it. **J, K, and L** are data-integrity
-  and rendering bugs (silent loss / row-width corruption, not crashes) found by a
-  focused source review of `resize()`, `tab()` and the erase/delete handlers;
-  each was runtime-verified on upstream master `0718fa8`, and the fork does not
-  modify the affected functions.
+  crash-shaped, so the fuzzers never flag it. **J and K** are data-integrity bugs
+  (silent loss of retained rows / a lost draw) found by a focused source review of
+  `resize()` and `tab()`, runtime-verified on upstream master `0718fa8`; the fork
+  does not modify those functions. **L** (erase/delete of a wide-char head) is
+  version-dependent: an `IndexError` crash (DoS) on the released builds (0.8.0-3,
+  0.8.2) via `render()`'s `wcwidth(char[0])`, and a silently short row on the git
+  tip / fork whose `render()` uses `wcswidth(char)` -- both runtime-verified. The
+  fork does not modify the erase/delete handlers.
 
 [PR #210]: https://github.com/selectel/pyte/pull/210
 [pyte#7]: https://github.com/org-ai-assisted/pyte/pull/7
@@ -69,12 +72,14 @@ pyte is a pure in-memory parser with no injection/eval/exec/path/deserialization
 sinks and no native code, so there is **no RCE or info-leak surface**. The
 relevant class is **denial of service**: A-D and F are unhandled exceptions that
 escape `Stream.feed()` and crash the hosting application on untrusted terminal
-output (`cat` any binary file, as [#209] notes). **E, J, and K** are
-data-integrity bugs (silent loss of drawn text / retained rows). **H, I, and L**
-are rendering-correctness bugs (spurious blank rows; dropped scroll-region
-scrolls; a row shorter than its column count), not crashes -- moving, mis-keeping
-or mis-rendering already-modelled cells adds no injection/exec sink, so none is a
-security issue. CodeQL independently flagged the C uninitialised
+output (`cat` any binary file, as [#209] notes); **L** joins them on the released
+builds (0.8.0-3, 0.8.2), where erasing a wide-char head raises `IndexError` out of
+`Screen.display`. **E, J, and K** are data-integrity bugs (silent loss of drawn
+text / retained rows). **H and I** are rendering-correctness bugs (spurious blank
+rows; dropped scroll-region scrolls), not crashes; on the git tip / fork **L**
+degrades to the same class (a row shorter than its column count). Mis-keeping or
+mis-rendering already-modelled cells adds no injection/exec sink, so the rendering
+cases are not security issues. CodeQL independently flagged the C uninitialised
 variable; its other findings (a `TYPE_CHECKING`-only "cyclic import", an
 intentional empty `except`, an `__init__`-calls-overridden-`reset` smell) were
 reviewed and are not defects.

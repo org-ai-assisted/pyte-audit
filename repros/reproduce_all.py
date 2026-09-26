@@ -4,8 +4,8 @@
 Usage:
     PYTHONPATH=/path/to/pyte/checkout python3 reproduce_all.py
 
-Prints one line per finding: CRASH (bug present) or ok. Bugs E, G, H, I, J, K and
-L are checked by state, not exception. Exit code is the number of findings still
+Prints one line per finding: CRASH (bug present) or ok. Bugs E, G, H, I, J and K are
+checked by state; L by state or exception (version-dependent). Exit code is the number of findings still
 present.
 """
 import sys
@@ -99,21 +99,30 @@ def check_bug_k():
 
 
 def check_bug_l():
-    # Erasing/deleting a wide-char head orphans the stub; render() gives the
-    # empty-data cell zero width, so the row is shorter than columns. Judged by
-    # state, both via CSI X (erase) and CSI P (delete).
-    s = pyte.Screen(5, 2)
-    st = pyte.Stream(s)
-    st.feed("a\u30b3b")              # 'a' + width-2 CJK char (U+30B3) + 'b'
-    st.feed("\x1b[1;2H")
-    st.feed("\x1b[X")
-    erase_short = len(s.display[0]) != s.columns
-    s = pyte.Screen(5, 2)
-    s.draw("a"); s.draw("\u30b3"); s.draw("b")
-    s.cursor_position(1, 2)
-    s.delete_characters(1)
-    delete_short = len(s.display[0]) != s.columns
-    return erase_short or delete_short
+    # Erasing/deleting a wide-char head orphans the empty-data stub. On released
+    # builds (0.8.0-3, 0.8.2) render() indexes char[0] and RAISES IndexError; on
+    # the git tip (render uses wcswidth(char)) it instead yields a row shorter than
+    # columns. Either manifestation is the bug -- judged by state OR exception.
+    def _broken(build):
+        try:
+            s = build()
+            return len(s.display[0]) != s.columns
+        except Exception:
+            return True                      # crash form (released render char[0])
+    def _erase():
+        s = pyte.Screen(5, 2)
+        st = pyte.Stream(s)
+        st.feed("a\u30b3b")             # width-2 CJK char (U+30B3)
+        st.feed("\x1b[1;2H")
+        st.feed("\x1b[X")
+        return s
+    def _delete():
+        s = pyte.Screen(5, 2)
+        s.draw("a"); s.draw("\u30b3"); s.draw("b")
+        s.cursor_position(1, 2)
+        s.delete_characters(1)
+        return s
+    return _broken(_erase) or _broken(_delete)
 
 
 def main():
@@ -159,7 +168,7 @@ def main():
         print("  ok    K stale tabstops")
     if check_bug_l():
         present += 1
-        print("  CRASH L wide-char orphan    erase/delete of a wide-char head shortens the rendered row")
+        print("  CRASH L wide-char orphan    erase/delete of a wide-char head: crash (released) or short row (tip)")
     else:
         print("  ok    L wide-char orphan")
     print(f"findings still present: {present}")
