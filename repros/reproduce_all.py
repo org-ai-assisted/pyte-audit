@@ -4,8 +4,9 @@
 Usage:
     PYTHONPATH=/path/to/pyte/checkout python3 reproduce_all.py
 
-Prints one line per finding: CRASH (bug present) or ok. Bugs E, G, H and I are
-checked by state, not exception. Exit code is the number of findings still present.
+Prints one line per finding: CRASH (bug present) or ok. Bugs E, G, H, I, J, K and
+L are checked by state, not exception. Exit code is the number of findings still
+present.
 """
 import sys
 import pyte
@@ -74,6 +75,47 @@ def check_bug_i():
     return not (sd_ok and su_ok)
 
 
+def check_bug_j():
+    # resize() smaller keeps the WRONG rows when a scroll region with top > 0 is
+    # active: the documented top-clip keeps the latest rows; the bug keeps the
+    # earliest. Judged by state.
+    s = pyte.Screen(80, 24)
+    st = pyte.Stream(s)
+    for i in range(24):
+        st.feed("row%02d\r\n" % i)
+    st.feed("\x1b[5;20r")                # DECSTBM: top > 0
+    s.resize(lines=10)
+    return not s.display[0].startswith("row15")   # latest rows should survive
+
+
+def check_bug_k():
+    # resize() to fewer columns leaves stale tab stops; tab() parks the cursor
+    # at/after self.columns and the next draw is lost off-screen. Judged by state.
+    s = pyte.Screen(80, 24)
+    s.resize(lines=24, columns=20)
+    s.cursor_position(1, 19)             # x = 18
+    s.tab()
+    return s.cursor.x >= s.columns
+
+
+def check_bug_l():
+    # Erasing/deleting a wide-char head orphans the stub; render() gives the
+    # empty-data cell zero width, so the row is shorter than columns. Judged by
+    # state, both via CSI X (erase) and CSI P (delete).
+    s = pyte.Screen(5, 2)
+    st = pyte.Stream(s)
+    st.feed("a\u30b3b")              # 'a' + width-2 CJK char (U+30B3) + 'b'
+    st.feed("\x1b[1;2H")
+    st.feed("\x1b[X")
+    erase_short = len(s.display[0]) != s.columns
+    s = pyte.Screen(5, 2)
+    s.draw("a"); s.draw("\u30b3"); s.draw("b")
+    s.cursor_position(1, 2)
+    s.delete_characters(1)
+    delete_short = len(s.display[0]) != s.columns
+    return erase_short or delete_short
+
+
 def main():
     print("pyte:", getattr(pyte, "__version__", "n/a"),
           "at", pyte.__file__)
@@ -105,6 +147,21 @@ def main():
         print("  CRASH I no SU/SD            CSI S/T scroll-region scroll is a silent no-op")
     else:
         print("  ok    I no SU/SD")
+    if check_bug_j():
+        present += 1
+        print("  CRASH J resize wrong rows   shrink under an active scroll region keeps earliest rows")
+    else:
+        print("  ok    J resize wrong rows")
+    if check_bug_k():
+        present += 1
+        print("  CRASH K stale tabstops      column shrink leaves tab() parking the cursor off-screen")
+    else:
+        print("  ok    K stale tabstops")
+    if check_bug_l():
+        present += 1
+        print("  CRASH L wide-char orphan    erase/delete of a wide-char head shortens the rendered row")
+    else:
+        print("  ok    L wide-char orphan")
     print(f"findings still present: {present}")
     return present
 
