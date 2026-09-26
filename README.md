@@ -28,6 +28,10 @@ both builds unless noted.
 | [F](reports/bug-F-int-unicode-digit.md) | `int('superscript-digit')` in CSI param -> `ValueError` | DoS | **Fix open: [PR #210]** (verified) |
 | [G](reports/bug-G-history-after-event.md) | `HistoryScreen.after_event` mutates a line dict mid-iteration -> `RuntimeError` | DoS | **No fix** (new; found after #210, verified) |
 | [H](reports/bug-H-linefeed-pending-wrap.md) | Bare LF after a width-filling line leaves a blank row (`DECAWM` deferred-wrap not cleared) | rendering | **No fix** ([PR #210] does not touch it). Fork fix: [pyte#7] |
+| [I](reports/bug-I-no-su-sd-scroll.md) | No SU/SD (`CSI S`/`CSI T`); scroll-region scrolls are silent no-ops, and the parser drops the `>`/SP intermediates that would disambiguate them | rendering | **No fix** (feature gap; [PR #210] does not add it). Fork fix: [st#151] |
+| [J](reports/bug-J-resize-margins-clip.md) | `resize()` smaller with an active scroll region (`top > 0`) keeps the earliest rows, not the latest -> silent data loss | data integrity | **No fix** ([PR #210] does not touch `resize()`) |
+| [K](reports/bug-K-resize-tabstops-stale.md) | `resize()` to fewer columns leaves stale tab stops; `tab()` parks the cursor off-screen and the next `draw()` is lost | data integrity | **No fix** ([PR #210] does not touch `resize()`/`tab()`) |
+| [L](reports/bug-L-wide-char-erase-orphan.md) | Erasing/deleting a wide-char head orphans the stub -> `IndexError` on released builds (0.8.0-3/0.8.2), a row shorter than `columns` on the git tip | DoS (released) / rendering (tip) | **No fix** ([PR #210] does not touch the erase/delete handlers or `render()`) |
 
 ### Dedup against upstream (verified against the PR #210 head, commit `98bd878`)
 
@@ -37,15 +41,26 @@ jonathanslenders, targeting issue [#209]) fixes the parser-crash class. Running
 C, and F** and **leaves D and E crashing**. So:
 
 * **A, B, C, F** already have an open upstream fix -- do not duplicate.
-* **D, E, G, and H** are not addressed by any open upstream PR and are the
-  genuinely new findings here. **G** was found by fuzzing *against the PR #210
-  tree* (parser crashes fixed), which let the fuzzer reach it; a 120k-round
+* **D, E, G, H, I, J, K, and L** are not addressed by any open upstream PR and
+  are the genuinely new findings here. **G** was found by fuzzing *against the
+  PR #210 tree* (parser crashes fixed), which let the fuzzer reach it; a 120k-round
   adversarial sweep with A-G filtered surfaced nothing further. **H** is a
   rendering bug (not a crash), so the crash-oriented fuzzers never flag it; it
-  is the deferred-wrap defect fixed in the `secure-terminal` emulator.
+  is the deferred-wrap defect fixed in the `secure-terminal` emulator. **I** is
+  a feature gap (SU/SD unimplemented) plus a parser limitation (intermediates
+  dropped), surfaced by a full-screen app's scroll-region paste redraw; also not
+  crash-shaped, so the fuzzers never flag it. **J and K** are data-integrity bugs
+  (silent loss of retained rows / a lost draw) found by a focused source review of
+  `resize()` and `tab()`, runtime-verified on upstream master `0718fa8`; the fork
+  does not modify those functions. **L** (erase/delete of a wide-char head) is
+  version-dependent: an `IndexError` crash (DoS) on the released builds (0.8.0-3,
+  0.8.2) via `render()`'s `wcwidth(char[0])`, and a silently short row on the git
+  tip / fork whose `render()` uses `wcswidth(char)` -- both runtime-verified. The
+  fork does not modify the erase/delete handlers.
 
 [PR #210]: https://github.com/selectel/pyte/pull/210
 [pyte#7]: https://github.com/org-ai-assisted/pyte/pull/7
+[st#151]: https://github.com/org-ai-assisted/secure-terminal/pull/151
 [#209]: https://github.com/selectel/pyte/issues/209
 [#126]: https://github.com/selectel/pyte/issues/126
 [#67]: https://github.com/selectel/pyte/issues/67
@@ -57,18 +72,23 @@ pyte is a pure in-memory parser with no injection/eval/exec/path/deserialization
 sinks and no native code, so there is **no RCE or info-leak surface**. The
 relevant class is **denial of service**: A-D and F are unhandled exceptions that
 escape `Stream.feed()` and crash the hosting application on untrusted terminal
-output (`cat` any binary file, as [#209] notes). **E** is a data-integrity bug
-(silent loss of drawn text). **H** is a rendering-correctness bug (spurious
-blank rows), not a crash. CodeQL independently flagged the C uninitialised
+output (`cat` any binary file, as [#209] notes); **L** joins them on the released
+builds (0.8.0-3, 0.8.2), where erasing a wide-char head raises `IndexError` out of
+`Screen.display`. **E, J, and K** are data-integrity bugs (silent loss of drawn
+text / retained rows). **H and I** are rendering-correctness bugs (spurious blank
+rows; dropped scroll-region scrolls), not crashes; on the git tip / fork **L**
+degrades to the same class (a row shorter than its column count). Mis-keeping or
+mis-rendering already-modelled cells adds no injection/exec sink, so the rendering
+cases are not security issues. CodeQL independently flagged the C uninitialised
 variable; its other findings (a `TYPE_CHECKING`-only "cyclic import", an
 intentional empty `except`, an `__init__`-calls-overridden-`reset` smell) were
 reviewed and are not defects.
 
 ## Novelty
 
-A, B, C, F are fixed by open upstream [PR #210] (verified). **D, E, G and H are
-new** -- no open upstream PR addresses them. Upstream has **no AI contribution
-policy** and is semi-active (last code commit 2025-09).
+A, B, C, F are fixed by open upstream [PR #210] (verified). **D, E, G, H, I, J, K
+and L are new** -- no open upstream PR addresses them. Upstream has **no AI
+contribution policy** and is semi-active (last code commit 2025-09).
 
 ## Status
 
